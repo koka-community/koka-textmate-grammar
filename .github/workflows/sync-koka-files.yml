@@ -1,0 +1,45 @@
+name: Sync Koka Files
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Runs every Sunday at midnight UTC
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout current repository
+      uses: actions/checkout@v4
+      with:
+        ref: main
+
+    - name: Clone koka-lang/koka repository
+      run: |
+        git clone https://github.com/koka-lang/koka.git koka-lang-repo
+
+    - name: Sync files
+      shell: bash
+      run: |
+        sync_file() {
+          local source=$1
+          local target=$2
+          if ! diff -q "$source" "$target"; then
+            cp "$source" "$target"
+            git add "$target"
+          fi
+        }
+        sync_file "koka-lang-repo/support/vscode/koka.language-koka/syntaxes/koka.json" "syntaxes/koka.json"
+        sync_file "koka-lang-repo/LICENSE" "LICENSE"
+
+        if git diff --cached --quiet; then
+          echo "No changes to commit."
+        else
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Sync files with koka-lang/koka repository"
+          git push
+        fi
